@@ -7,6 +7,7 @@ dependencies = [
     "alembic>=1.14,<2.0",
     "anyio>=4.4,<4.10",
     "fastapi>=0.115,<0.116",
+    "httpx>=0.27,<0.28",
     "pydantic>=2.10,<3.0",
     "psycopg[binary]>=3.2,<4.0",
     "sqlalchemy>=2.0,<3.0",
@@ -20,7 +21,6 @@ package-mode = false
 pytest = ">=8.3,<9.0"
 pytest-cov = ">=6.0,<7.0"
 jsonschema = ">=4.23,<5.0"
-httpx = ">=0.27,<0.28"
 ruff = ">=0.9,<1.0"
 
 [build-system]
