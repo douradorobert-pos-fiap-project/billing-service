@@ -7,9 +7,12 @@ from src.infrastructure.database.models import InboxMessageModel
 
 
 def claim_event(session: Session, event_id: UUID | str, consumer: str) -> bool:
-    existing = session.scalar(select(InboxMessageModel).where(
-        InboxMessageModel.event_id == str(event_id), InboxMessageModel.consumer == consumer
-    ))
+    existing = session.scalar(
+        select(InboxMessageModel).where(
+            InboxMessageModel.event_id == str(event_id),
+            InboxMessageModel.consumer == consumer,
+        )
+    )
     if existing is not None:
         return False
     session.add(InboxMessageModel(event_id=str(event_id), consumer=consumer))

@@ -190,9 +190,13 @@ class MercadoPagoClient:
             "expired": PaymentStatus.REJECTED,
             "refunded": PaymentStatus.REFUNDED,
         }
+        if not isinstance(remote_status, str):
+            raise PaymentGatewayInvalidResponse(
+                f"unsupported order status: {remote_status!r}"
+            )
         try:
             return statuses[remote_status]
-        except (KeyError, TypeError) as exc:
+        except KeyError as exc:
             raise PaymentGatewayInvalidResponse(
                 f"unsupported order status: {remote_status!r}"
             ) from exc

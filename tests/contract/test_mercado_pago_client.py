@@ -85,8 +85,7 @@ def test_get_payment_status_maps_order_status(remote_status, expected):
         return httpx.Response(200, json={"id": "ORD-123", "status": remote_status})
 
     assert (
-        client(httpx.MockTransport(respond)).get_payment_status("ORD-123")
-        is expected
+        client(httpx.MockTransport(respond)).get_payment_status("ORD-123") is expected
     )
 
 
@@ -97,9 +96,7 @@ def test_refund_uses_dedicated_endpoint_and_idempotency_key():
         requests.append(request)
         return httpx.Response(200, json={"id": "ORD-123", "status": "refunded"})
 
-    result = client(httpx.MockTransport(respond)).refund(
-        "ORD-123", Decimal("25.00")
-    )
+    result = client(httpx.MockTransport(respond)).refund("ORD-123", Decimal("25.00"))
 
     assert result.external_id == "ORD-123"
     assert result.amount == Decimal("25.00")

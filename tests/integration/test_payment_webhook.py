@@ -98,8 +98,7 @@ def post_webhook(
         f"/api/v1/webhooks/mercado-pago?data.id={EXTERNAL_ID}&type=order",
         headers={
             "X-Request-Id": request_id,
-            "X-Signature": signature_value
-            or signature(EXTERNAL_ID, request_id),
+            "X-Signature": signature_value or signature(EXTERNAL_ID, request_id),
         },
         json={
             "id": notification_id,
@@ -156,7 +155,9 @@ def test_webhook_body_cannot_confirm_payment_without_active_api_confirmation(
 
     assert response.status_code == 200
     with session_factory() as session:
-        assert session.get(PaymentModel, PAYMENT_ID).status == PaymentStatus.PENDING.value
+        assert (
+            session.get(PaymentModel, PAYMENT_ID).status == PaymentStatus.PENDING.value
+        )
         assert session.scalar(select(func.count()).select_from(OutboxMessageModel)) == 0
 
 
@@ -172,7 +173,9 @@ def test_invalid_signature_is_rejected_before_gateway_query(
     assert response.status_code == 401
     assert gateway.status_queries == []
     with session_factory() as session:
-        assert session.get(PaymentModel, PAYMENT_ID).status == PaymentStatus.PENDING.value
+        assert (
+            session.get(PaymentModel, PAYMENT_ID).status == PaymentStatus.PENDING.value
+        )
 
 
 def test_live_mode_notification_is_rejected_in_test_environment(

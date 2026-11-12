@@ -52,11 +52,30 @@ class QuoteResponse(BaseModel):
 
 
 def to_response(quote: Quote) -> QuoteResponse:
-    return QuoteResponse(id=quote.id, order_id=quote.order_id, saga_id=quote.saga_id, status=quote.status.value, total=quote.total, lines=[QuoteLineResponse(catalog_item_id=line.catalog_item_id, name=line.name, item_type=line.item_type.value, unit_price=line.unit_price, quantity=line.quantity, subtotal=line.subtotal) for line in quote.lines])
+    return QuoteResponse(
+        id=quote.id,
+        order_id=quote.order_id,
+        saga_id=quote.saga_id,
+        status=quote.status.value,
+        total=quote.total,
+        lines=[
+            QuoteLineResponse(
+                catalog_item_id=line.catalog_item_id,
+                name=line.name,
+                item_type=line.item_type.value,
+                unit_price=line.unit_price,
+                quantity=line.quantity,
+                subtotal=line.subtotal,
+            )
+            for line in quote.lines
+        ],
+    )
 
 
 @router.post("", response_model=QuoteResponse, status_code=status.HTTP_201_CREATED)
-def create_quote(data: QuoteCreate, request: Request, session: SessionDep) -> QuoteResponse:
+def create_quote(
+    data: QuoteCreate, request: Request, session: SessionDep
+) -> QuoteResponse:
     with session.begin():
         selections = []
         for selected in data.items:
@@ -64,7 +83,9 @@ def create_quote(data: QuoteCreate, request: Request, session: SessionDep) -> Qu
             if item is None:
                 raise HTTPException(status_code=404, detail="catalog item not found")
             selections.append((item, selected.quantity))
-        quote = generate_quote(data.order_id, data.saga_id, request.state.correlation_id, selections)
+        quote = generate_quote(
+            data.order_id, data.saga_id, request.state.correlation_id, selections
+        )
         persist_quote(session, quote)
     return to_response(quote)
 

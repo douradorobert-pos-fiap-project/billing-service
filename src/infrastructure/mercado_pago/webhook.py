@@ -21,7 +21,5 @@ def validate_signature(
     manifest = (
         f"id:{data_id.lower()};request-id:{request_id};ts:{timestamp};"
     ).encode()
-    expected_digest = hmac.new(
-        secret.encode(), manifest, hashlib.sha256
-    ).hexdigest()
+    expected_digest = hmac.new(secret.encode(), manifest, hashlib.sha256).hexdigest()
     return hmac.compare_digest(received_digest, expected_digest)

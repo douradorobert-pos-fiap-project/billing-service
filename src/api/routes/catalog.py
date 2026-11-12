@@ -24,9 +24,24 @@ class CatalogItemResponse(BaseModel):
     unit_price: Decimal
 
 
-@router.post("", response_model=CatalogItemResponse, status_code=status.HTTP_201_CREATED)
-def create_catalog_item(data: CatalogItemCreate, session: SessionDep) -> CatalogItemResponse:
-    model = CatalogItemModel(id=str(uuid4()), name=data.name, item_type=data.item_type.value, unit_price=money(data.unit_price), active=True)
+@router.post(
+    "", response_model=CatalogItemResponse, status_code=status.HTTP_201_CREATED
+)
+def create_catalog_item(
+    data: CatalogItemCreate, session: SessionDep
+) -> CatalogItemResponse:
+    model = CatalogItemModel(
+        id=str(uuid4()),
+        name=data.name,
+        item_type=data.item_type.value,
+        unit_price=money(data.unit_price),
+        active=True,
+    )
     with session.begin():
         session.add(model)
-    return CatalogItemResponse(id=UUID(model.id), name=model.name, item_type=CatalogItemType(model.item_type), unit_price=model.unit_price)
+    return CatalogItemResponse(
+        id=UUID(model.id),
+        name=model.name,
+        item_type=CatalogItemType(model.item_type),
+        unit_price=model.unit_price,
+    )
