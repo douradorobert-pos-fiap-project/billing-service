@@ -1,5 +1,6 @@
 import os
 from decimal import Decimal
+from time import perf_counter
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
@@ -15,6 +16,8 @@ from src.application.ports.payment_gateway import (
 )
 from src.domain.catalog import money
 from src.domain.payment import Payment, PaymentStatus
+from src.infrastructure.observability.logging import log_event
+from src.infrastructure.observability.telemetry import record_event
 
 
 class MercadoPagoClient:
@@ -40,9 +43,7 @@ class MercadoPagoClient:
     def from_env(cls) -> "MercadoPagoClient":
         return cls(
             access_token=os.getenv("MERCADO_PAGO_ACCESS_TOKEN", ""),
-            base_url=os.getenv(
-                "MERCADO_PAGO_BASE_URL", "https://api.mercadopago.com"
-            ),
+            base_url=os.getenv("MERCADO_PAGO_BASE_URL", "https://api.mercadopago.com"),
         )
 
     def create_dynamic_qr(self, payment: Payment) -> PaymentGatewayResult:
@@ -63,7 +64,9 @@ class MercadoPagoClient:
         data = self._json_object(response)
         external_id = data.get("id")
         type_response = data.get("type_response")
-        qr_data = type_response.get("qr_data") if isinstance(type_response, dict) else None
+        qr_data = (
+            type_response.get("qr_data") if isinstance(type_response, dict) else None
+        )
         if not isinstance(external_id, str) or not isinstance(qr_data, str):
             raise PaymentGatewayInvalidResponse("order response lacks id or qr_data")
         return PaymentGatewayResult(
@@ -82,7 +85,9 @@ class MercadoPagoClient:
             "POST",
             f"/v1/orders/{external_id}/refund",
             idempotency_key=str(
-                uuid5(NAMESPACE_URL, f"mercado-pago:{external_id}:refund:{refund_amount}")
+                uuid5(
+                    NAMESPACE_URL, f"mercado-pago:{external_id}:refund:{refund_amount}"
+                )
             ),
             json={"amount": format(refund_amount, ".2f")},
         )
@@ -109,6 +114,7 @@ class MercadoPagoClient:
             headers["X-Idempotency-Key"] = idempotency_key
 
         for attempt in range(self._max_attempts):
+            started = perf_counter()
             try:
                 with httpx.Client(
                     base_url=self._base_url,
@@ -119,6 +125,13 @@ class MercadoPagoClient:
                         method, path, headers=headers, json=json
                     )
             except httpx.RequestError as exc:
+                log_event(
+                    "mercado_pago.request",
+                    method=method,
+                    path=path,
+                    outcome="network_error",
+                    attempt=attempt + 1,
+                )
                 if attempt + 1 == self._max_attempts:
                     raise PaymentGatewayTemporaryError(
                         "Mercado Pago request failed temporarily"
@@ -126,6 +139,14 @@ class MercadoPagoClient:
                 continue
 
             if response.status_code == 429 or response.status_code >= 500:
+                log_event(
+                    "mercado_pago.request",
+                    method=method,
+                    path=path,
+                    outcome="retryable_error",
+                    status_code=response.status_code,
+                    attempt=attempt + 1,
+                )
                 if attempt + 1 == self._max_attempts:
                     raise PaymentGatewayTemporaryError(
                         f"Mercado Pago unavailable: HTTP {response.status_code}"
@@ -135,6 +156,16 @@ class MercadoPagoClient:
                 raise PaymentGatewayError(
                     f"Mercado Pago rejected request: HTTP {response.status_code}"
                 )
+            duration_ms = round((perf_counter() - started) * 1000, 2)
+            attributes = {
+                "method": method,
+                "path": path,
+                "status_code": response.status_code,
+                "duration_ms": duration_ms,
+                "attempt": attempt + 1,
+            }
+            log_event("mercado_pago.request", outcome="success", **attributes)
+            record_event("MercadoPagoRequest", attributes)
             return response
 
         raise AssertionError("retry loop exhausted unexpectedly")

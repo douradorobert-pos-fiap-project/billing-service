@@ -1,4 +1,5 @@
 import os
+from time import perf_counter
 from uuid import UUID, uuid4
 
 from fastapi import FastAPI, Request
@@ -12,6 +13,8 @@ from src.application.ports.payment_gateway import (
 )
 from src.infrastructure.database.session import SessionFactory
 from src.infrastructure.mercado_pago.client import MercadoPagoClient
+from src.infrastructure.observability.logging import bind_context, log_event
+from src.infrastructure.observability.telemetry import record_event
 
 
 def create_app(
@@ -42,9 +45,32 @@ def create_app(
         try:
             correlation_id = UUID(raw_value) if raw_value else uuid4()
         except ValueError:
-            return JSONResponse(status_code=400, content={"detail": "X-Correlation-ID must be a UUID"})
+            return JSONResponse(
+                status_code=400, content={"detail": "X-Correlation-ID must be a UUID"}
+            )
         request.state.correlation_id = correlation_id
-        response = await call_next(request)
+        started = perf_counter()
+        with bind_context(correlation_id=correlation_id):
+            response = await call_next(request)
+            duration_ms = round((perf_counter() - started) * 1000, 2)
+            log_event(
+                "http.request",
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+            )
+            record_event(
+                "HttpRequest",
+                {
+                    "service": "billing-service",
+                    "correlation_id": str(correlation_id),
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "duration_ms": duration_ms,
+                },
+            )
         response.headers["X-Correlation-ID"] = str(correlation_id)
         return response
 
