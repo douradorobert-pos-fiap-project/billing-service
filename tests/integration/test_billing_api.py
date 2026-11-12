@@ -58,7 +58,7 @@ def test_generate_quote_persists_snapshot_and_outbox_atomically(
         assert line.quantity == 2
         message = session.scalar(select(OutboxMessageModel))
         assert message is not None
-        assert message.message_type == "QuoteGenerated"
+        assert message.message_type == "QuoteGeneratedV1"
 
 
 def test_approve_quote_is_idempotent_and_emits_one_event(
@@ -82,7 +82,7 @@ def test_approve_quote_is_idempotent_and_emits_one_event(
         approved_events = session.scalar(
             select(func.count())
             .select_from(OutboxMessageModel)
-            .where(OutboxMessageModel.message_type == "QuoteApproved")
+            .where(OutboxMessageModel.message_type == "QuoteApprovedV1")
         )
         assert approved_events == 1
 

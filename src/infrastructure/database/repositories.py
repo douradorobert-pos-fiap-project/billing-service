@@ -23,7 +23,7 @@ def get_catalog_item(session: Session, item_id: UUID) -> CatalogItem | None:
 def persist_quote(session: Session, quote: Quote) -> None:
     session.add(QuoteModel(id=str(quote.id), order_id=str(quote.order_id), saga_id=str(quote.saga_id), correlation_id=str(quote.correlation_id), status=quote.status.value, total=quote.total))
     session.add_all(QuoteLineModel(id=str(line.id), quote_id=str(quote.id), catalog_item_id=str(line.catalog_item_id), name=line.name, item_type=line.item_type.value, unit_price=line.unit_price, quantity=line.quantity) for line in quote.lines)
-    session.add(quote_event(quote, "QuoteGenerated"))
+    session.add(quote_event(quote, "QuoteGeneratedV1"))
 
 
 def get_quote(session: Session, quote_id: UUID) -> Quote | None:
@@ -40,5 +40,5 @@ def persist_decision(session: Session, quote: Quote, changed: bool) -> None:
         raise LookupError("quote not found")
     model.status = quote.status.value
     if changed:
-        event_type = "QuoteApproved" if quote.status is QuoteStatus.APPROVED else "QuoteRejected"
+        event_type = "QuoteApprovedV1" if quote.status is QuoteStatus.APPROVED else "QuoteRejectedV1"
         session.add(quote_event(quote, event_type))
