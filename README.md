@@ -13,4 +13,33 @@ bash scripts/quality.sh
 
 Swagger: `http://localhost:8002/docs`; OpenAPI: `/openapi.json`; health: `/health`. Rotas: `/api/v1/catalog-items`, `/api/v1/quotes` e `/api/v1/webhooks/mercado-pago`.
 
-Defina token e segredo de webhook apenas por variável/Secret Kubernetes. Webhooks validam assinatura, rejeitam notificações live no ambiente de teste e são idempotentes. O pipeline independente publica imagem imutável pelo SHA somente após os gates.
+Defina token e segredo de webhook apenas por variável/Secret Kubernetes. Webhooks validam assinatura, rejeitam notificações live no ambiente de teste e são idempotentes. Pull requests executam qualidade e build Docker local, sem publicar ou acessar a AWS. O workflow publica a imagem por SHA e resolve seu digest, sincroniza o Secret, executa `alembic upgrade head` e somente então atualiza o Deployment quando iniciado manualmente por `workflow_dispatch` no environment `sandbox`.
+
+## Configuração do sandbox
+
+GitHub Variables:
+
+```text
+AWS_REGION
+EKS_CLUSTER_NAME
+RDS_ENDPOINT
+DB_PORT
+BILLING_DATABASE
+BILLING_DATABASE_USERNAME
+```
+
+GitHub Secrets:
+
+```text
+AWS_ACCESS_KEY_ID
+AWS_SECRET_ACCESS_KEY
+AWS_SESSION_TOKEN
+BILLING_DB_PASSWORD
+NEW_RELIC_LICENSE_KEY
+MERCADO_PAGO_ACCESS_TOKEN
+MERCADO_PAGO_WEBHOOK_SECRET
+```
+
+Use somente credenciais de teste do Mercado Pago. `scripts/sync-k8s-secrets.sh` monta `DATABASE_URL` com usuário e senha percent-encoded e atualiza `billing-service-secrets` sem gravar o manifesto renderizado. O mesmo Secret recebe as credenciais temporárias AWS para SQS e as credenciais de pagamento. Nunca habilite `set -x` nesse fluxo.
+
+O Job `k8s/migration-job.yaml` executa dentro do EKS e alcança o RDS privado. Em ambiente `sandbox`, Alembic rejeita a execução se `DATABASE_URL` não estiver presente; o endereço de desenvolvimento do `alembic.ini` permanece somente como conveniência local.
