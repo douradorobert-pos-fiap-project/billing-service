@@ -30,6 +30,13 @@ spec:
                 name: billing-service
                 port:
                   number: 80
+          - path: /api/v1/payments
+            pathType: Prefix
+            backend:
+              service:
+                name: billing-service
+                port:
+                  number: 80
           - path: /api/v1/webhooks
             pathType: Prefix
             backend:

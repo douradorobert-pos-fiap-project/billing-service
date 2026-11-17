@@ -25,11 +25,14 @@ def test_manual_delivery_orders_secret_migration_before_rollout() -> None:
     migration = workflow.index("job/billing-service-migration")
     wait = workflow.index("wait --for=condition=complete")
     deployment = workflow.index("k8s/deployment.yaml")
+    worker = workflow.index("k8s/worker-deployment.yaml")
     ingress = workflow.index("k8s/ingress.yaml")
     validation = workflow.index("Validate internal ALB configuration")
     assert sync < migration < wait < deployment < ingress
     assert validation < migration
     assert "ALB_SECURITY_GROUP_ID: ${{ vars.ALB_SECURITY_GROUP_ID }}" in workflow
+    assert deployment < worker
+    assert "rollout status deployment/billing-service-worker" in workflow
 
 
 def test_secret_sync_injects_payment_secrets_and_encodes_database_url(

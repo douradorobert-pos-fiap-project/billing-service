@@ -188,3 +188,26 @@ def test_relay_failure_schedules_exponential_retry(session_factory):
         assert saved.attempts == 1
         assert saved.next_attempt_at.replace(tzinfo=UTC) >= before
         assert saved.lease_until is None
+
+
+def test_relay_routes_billing_events_to_the_os_queue(queues, session_factory):
+    raw_sqs, billing_url, _ = queues
+    os_url = raw_sqs.create_queue(QueueName="os-service-events")["QueueUrl"]
+    message_payload = envelope(event_type="QuoteGeneratedV1")
+    message = OutboxMessageModel(
+        id=message_payload["event_id"],
+        message_type=message_payload["event_type"],
+        aggregate_id=message_payload["order_id"],
+        payload=message_payload,
+    )
+    with session_factory.begin() as session:
+        session.add(message)
+    relay = OutboxRelay(
+        SQLAlchemyOutboxStore(session_factory),
+        SQSClient(raw_sqs),
+        {"QuoteGeneratedV1": os_url},
+    )
+
+    assert relay.run_once() == 1
+    assert SQSClient(raw_sqs).receive(os_url)[0].body == message_payload
+    assert SQSClient(raw_sqs).receive(billing_url) == []
