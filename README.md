@@ -13,6 +13,10 @@ bash scripts/quality.sh
 
 Swagger: `http://localhost:8002/docs`; OpenAPI: `/openapi.json`; health: `/health`. Rotas: `/api/v1/catalog-items`, `/api/v1/quotes`, `/api/v1/payments` e `/api/v1/webhooks/mercado-pago`.
 
+## Evidências de qualidade
+
+Execução `workflow_dispatch` concluída com sucesso em 17/11/2026: [run 44157173795](https://github.com/douradorobert-pos-fiap-project/billing-service/actions/runs/44157173795). O workflow reportou 84 testes aprovados e 91,34% de cobertura. O artifact `quality-reports-billing-service` inclui `coverage.xml` e JUnit.
+
 Defina token e segredo de webhook apenas por variável/Secret Kubernetes. Webhooks validam assinatura, rejeitam notificações live no ambiente de teste e são idempotentes. Pull requests executam qualidade e build Docker local, sem publicar ou acessar a AWS. O workflow publica a imagem por SHA e resolve seu digest, sincroniza o Secret, executa `alembic upgrade head` e somente então atualiza o Deployment quando iniciado manualmente por `workflow_dispatch` no environment `sandbox`.
 
 ## Configuração do sandbox
