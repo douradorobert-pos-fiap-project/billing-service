@@ -1,4 +1,5 @@
 from typing import Annotated
+from uuid import NAMESPACE_URL, uuid5
 
 from fastapi import APIRouter, Header, HTTPException, Query, Request
 from pydantic import BaseModel
@@ -24,7 +25,8 @@ class WebhookResource(BaseModel):
 
 
 class MercadoPagoNotification(BaseModel):
-    id: str
+    id: str | int | None = None
+    action: str | None = None
     live_mode: bool
     type: str
     data: WebhookResource
@@ -61,7 +63,22 @@ def validate_notification(
 def process_notification(
     session: Session, gateway, notification: MercadoPagoNotification, data_id: str
 ) -> dict[str, str]:
-    if not claim_event(session, notification.id, "mercado-pago-webhook"):
+    if notification.id is not None:
+        notification_id = str(notification.id)
+    elif notification.action:
+        notification_id = str(
+            uuid5(
+                NAMESPACE_URL,
+                f"mercado-pago:{notification.action}:{data_id}",
+            )
+        )
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail="notification id or action is required",
+        )
+
+    if not claim_event(session, notification_id, "mercado-pago-webhook"):
         return {"status": "duplicate"}
     payment = session.scalar(
         select(PaymentModel).where(PaymentModel.external_id == data_id)
@@ -81,7 +98,7 @@ def process_notification(
         quote = session.get(QuoteModel, payment.quote_id)
         if quote is None:
             raise RuntimeError("payment quote not found")
-        session.add(payment_event(payment, quote, event_type, notification.id))
+        session.add(payment_event(payment, quote, event_type, notification_id))
     return {"status": "processed"}
 
 
