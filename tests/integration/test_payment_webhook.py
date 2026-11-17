@@ -112,6 +112,58 @@ def post_webhook(
     )
 
 
+def post_qr_webhook_without_top_level_id(
+    client: TestClient,
+    *,
+    request_id: str = "qr-request-1",
+):
+    return client.post(
+        f"/api/v1/webhooks/mercado-pago?data.id={EXTERNAL_ID}&type=order",
+        headers={
+            "X-Request-Id": request_id,
+            "X-Signature": signature(EXTERNAL_ID, request_id),
+        },
+        json={
+            "action": "order.processed",
+            "api_version": "v1",
+            "application_id": "8268208987551143",
+            "data": {
+                "id": EXTERNAL_ID,
+                "external_reference": PAYMENT_ID,
+                "status": "processed",
+                "status_detail": "accredited",
+            },
+            "date_created": "2025-05-12T22:46:59.635090485Z",
+            "live_mode": False,
+            "type": "order",
+            "user_id": "3853173836",
+        },
+    )
+
+
+def test_qr_order_notification_without_top_level_id_is_processed_idempotently(
+    session_factory: sessionmaker[Session],
+):
+    seed_payment(session_factory)
+    gateway = StatusGateway(PaymentStatus.APPROVED)
+
+    with webhook_client(session_factory, gateway) as client:
+        first = post_qr_webhook_without_top_level_id(client)
+        duplicate = post_qr_webhook_without_top_level_id(client)
+
+    assert first.status_code == 200
+    assert first.json() == {"status": "processed"}
+    assert duplicate.status_code == 200
+    assert duplicate.json() == {"status": "duplicate"}
+    assert gateway.status_queries == [EXTERNAL_ID]
+
+    with session_factory() as session:
+        payment = session.get(PaymentModel, PAYMENT_ID)
+        assert payment.status == PaymentStatus.APPROVED.value
+        assert session.scalar(select(func.count()).select_from(InboxMessageModel)) == 1
+        assert session.scalar(select(func.count()).select_from(OutboxMessageModel)) == 1
+
+
 def test_webhook_confirms_status_via_api_and_emits_event_once(
     session_factory: sessionmaker[Session],
 ):
