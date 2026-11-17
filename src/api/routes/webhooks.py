@@ -50,7 +50,8 @@ def validate_notification(
         signature=signature,
     ):
         raise HTTPException(status_code=401, detail="invalid webhook signature")
-    if environment == "test" and notification.live_mode:
+    is_test_environment = environment.strip().lower() in {"test", "sandbox"}
+    if is_test_environment and notification.live_mode:
         raise HTTPException(
             status_code=400,
             detail="live Mercado Pago notification is disabled in test environment",
