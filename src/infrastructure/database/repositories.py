@@ -27,16 +27,16 @@ def get_catalog_item(session: Session, item_id: UUID) -> CatalogItem | None:
 
 
 def persist_quote(session: Session, quote: Quote) -> None:
-    session.add(
-        QuoteModel(
-            id=str(quote.id),
-            order_id=str(quote.order_id),
-            saga_id=str(quote.saga_id),
-            correlation_id=str(quote.correlation_id),
-            status=quote.status.value,
-            total=quote.total,
-        )
+    quote_model = QuoteModel(
+        id=str(quote.id),
+        order_id=str(quote.order_id),
+        saga_id=str(quote.saga_id),
+        correlation_id=str(quote.correlation_id),
+        status=quote.status.value,
+        total=quote.total,
     )
+    session.add(quote_model)
+    session.flush()
     session.add_all(
         QuoteLineModel(
             id=str(line.id),
