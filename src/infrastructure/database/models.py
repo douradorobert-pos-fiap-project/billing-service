@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
@@ -71,6 +72,7 @@ class PaymentModel(Base):
     external_id: Mapped[str | None] = mapped_column(
         String(100), nullable=True, unique=True
     )
+    qr_data: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class OutboxMessageModel(Base):

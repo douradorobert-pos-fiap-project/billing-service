@@ -8,6 +8,7 @@ K8S = ROOT / "k8s"
 SERVICE = "billing-service"
 EXPECTED_FILES = {
     "deployment.yaml",
+    "worker-deployment.yaml",
     "service.yaml",
     "configmap.yaml",
     "hpa.yaml",
@@ -52,6 +53,27 @@ def test_deployment_is_immutable_non_root_and_operationally_bounded():
     assert container["livenessProbe"]["httpGet"]["path"] == "/health"
 
 
+def test_worker_deployment_is_isolated_non_root_and_uses_the_service_image():
+    worker = documents("worker-deployment.yaml")[0]
+    pod = worker["spec"]["template"]["spec"]
+    container = pod["containers"][0]
+    assert worker["metadata"]["name"] == f"{SERVICE}-worker"
+    assert worker["spec"]["replicas"] == 1
+    assert container["command"] == [
+        "newrelic-admin",
+        "run-program",
+        "python",
+        "-m",
+        "src.worker",
+    ]
+    assert "tech-challenge-fiap-billing-service@sha256:" in container["image"]
+    assert pod["securityContext"]["runAsNonRoot"] is True
+    assert container["envFrom"] == [
+        {"configMapRef": {"name": f"{SERVICE}-config"}},
+        {"secretRef": {"name": f"{SERVICE}-secrets"}},
+    ]
+
+
 def test_service_hpa_and_configuration_are_service_scoped():
     service = documents("service.yaml")[0]
     hpa = documents("hpa.yaml")[0]
@@ -90,6 +112,7 @@ def test_ingress_routes_billing_paths_through_shared_internal_alb():
     assert paths == {
         "/api/v1/catalog-items": SERVICE,
         "/api/v1/quotes": SERVICE,
+        "/api/v1/payments": SERVICE,
         "/api/v1/webhooks": SERVICE,
     }
     assert all(

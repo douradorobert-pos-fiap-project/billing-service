@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session, sessionmaker
 
-from src.api.routes import catalog, quotes, webhooks
+from src.api.routes import catalog, payments, quotes, webhooks
 from src.application.ports.payment_gateway import (
     PaymentGateway,
     PaymentGatewayConfigurationError,
@@ -79,6 +79,7 @@ def create_app(
         return {"status": "ok"}
 
     app.include_router(catalog.router)
+    app.include_router(payments.router)
     app.include_router(quotes.router)
     app.include_router(webhooks.router)
     return app
