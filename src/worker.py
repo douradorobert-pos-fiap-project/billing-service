@@ -9,7 +9,10 @@ from src.infrastructure.messaging.outbox_relay import (
     OutboxRelay,
     SQLAlchemyOutboxStore,
 )
-from src.infrastructure.messaging.sqs_client import SQSClient
+from src.infrastructure.messaging.sqs_client import (
+    SQS_LONG_POLL_WAIT_SECONDS,
+    SQSClient,
+)
 from src.infrastructure.observability.logging import log_event
 
 OUTBOUND_EVENT_TYPES = (
@@ -34,7 +37,11 @@ def main() -> None:
         event_type: queue_urls["os-service"] for event_type in OUTBOUND_EVENT_TYPES
     }
     relay = OutboxRelay(SQLAlchemyOutboxStore(SessionFactory), sqs, routes)
-    consumer = SQSConsumer(sqs, queue_urls["billing-service"], wait_time_seconds=10)
+    consumer = SQSConsumer(
+        sqs,
+        queue_urls["billing-service"],
+        wait_time_seconds=SQS_LONG_POLL_WAIT_SECONDS,
+    )
     gateway = MercadoPagoClient.from_env()
     log_event("worker.started", service="billing-service")
 
