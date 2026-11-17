@@ -118,3 +118,4 @@ def test_openapi_exposes_catalog_quote_and_approval(client: TestClient) -> None:
     assert "/api/v1/quotes" in paths
     assert "/api/v1/quotes/{quote_id}" in paths
     assert "/api/v1/quotes/{quote_id}/approval" in paths
+    assert "/api/v1/payments/by-order/{order_id}" in paths
