@@ -74,14 +74,17 @@ def signature(data_id: str, request_id: str, timestamp: str = "1742505638683") -
 
 
 def webhook_client(
-    session_factory: sessionmaker[Session], gateway: StatusGateway
+    session_factory: sessionmaker[Session],
+    gateway: StatusGateway,
+    *,
+    environment: str = "test",
 ) -> TestClient:
     return TestClient(
         create_app(
             session_factory,
             payment_gateway=gateway,
             mercado_pago_webhook_secret=SECRET,
-            environment="test",
+            environment=environment,
         )
     )
 
@@ -192,3 +195,27 @@ def test_live_mode_notification_is_rejected_in_test_environment(
         "detail": "live Mercado Pago notification is disabled in test environment"
     }
     assert gateway.status_queries == []
+    with session_factory() as session:
+        assert (
+            session.get(PaymentModel, PAYMENT_ID).status == PaymentStatus.PENDING.value
+        )
+
+
+def test_live_mode_notification_is_rejected_in_sandbox_environment(
+    session_factory: sessionmaker[Session],
+):
+    seed_payment(session_factory)
+    gateway = StatusGateway(PaymentStatus.APPROVED)
+
+    with webhook_client(session_factory, gateway, environment="sandbox") as client:
+        response = post_webhook(client, live_mode=True)
+
+    assert response.status_code == 400
+    assert response.json() == {
+        "detail": "live Mercado Pago notification is disabled in test environment"
+    }
+    assert gateway.status_queries == []
+    with session_factory() as session:
+        assert (
+            session.get(PaymentModel, PAYMENT_ID).status == PaymentStatus.PENDING.value
+        )
