@@ -11,7 +11,7 @@ poetry run pytest --cov=src --cov-report=term-missing --cov-fail-under=80
 bash scripts/quality.sh
 ```
 
-Swagger: `http://localhost:8002/docs`; OpenAPI: `/openapi.json`; health: `/health`. Rotas: `/api/v1/catalog-items`, `/api/v1/quotes` e `/api/v1/webhooks/mercado-pago`.
+Swagger: `http://localhost:8002/docs`; OpenAPI: `/openapi.json`; health: `/health`. Rotas: `/api/v1/catalog-items`, `/api/v1/quotes`, `/api/v1/payments` e `/api/v1/webhooks/mercado-pago`.
 
 Defina token e segredo de webhook apenas por variável/Secret Kubernetes. Webhooks validam assinatura, rejeitam notificações live no ambiente de teste e são idempotentes. Pull requests executam qualidade e build Docker local, sem publicar ou acessar a AWS. O workflow publica a imagem por SHA e resolve seu digest, sincroniza o Secret, executa `alembic upgrade head` e somente então atualiza o Deployment quando iniciado manualmente por `workflow_dispatch` no environment `sandbox`.
 
@@ -44,6 +44,12 @@ MERCADO_PAGO_WEBHOOK_SECRET
 Use somente credenciais de teste do Mercado Pago. `scripts/sync-k8s-secrets.sh` monta `DATABASE_URL` com usuário e senha percent-encoded e atualiza `billing-service-secrets` sem gravar o manifesto renderizado. O mesmo Secret recebe as credenciais temporárias AWS para SQS e as credenciais de pagamento. Nunca habilite `set -x` nesse fluxo.
 
 O Job `k8s/migration-job.yaml` executa dentro do EKS e alcança o RDS privado. Em ambiente `sandbox`, Alembic rejeita a execução se `DATABASE_URL` não estiver presente; o endereço de desenvolvimento do `alembic.ini` permanece somente como conveniência local.
+
+## Cotação manual e pagamento por QR
+
+`QuoteGenerationRequestedV1` sinaliza que o diagnóstico está pronto para revisão. O worker do Billing registra a mensagem como processada, mas não associa automaticamente os serviços recomendados a itens ou preços do catálogo. Uma pessoa seleciona os itens e usa `POST /api/v1/quotes`, depois aprova a cotação pelo endpoint de aprovação existente.
+
+Após a conclusão do reparo, a saga envia `PaymentCreationRequestedV1`. O Billing cria uma única intenção por cotação aprovada, usando uma chave de idempotência estável no Mercado Pago. Consulte `GET /api/v1/payments/by-order/{order_id}` para obter valor, estado e `qr_data` enquanto o pagamento estiver pendente. O QR deixa de ser retornado quando o pagamento sai do estado pendente. O conteúdo do QR não é gravado em logs.
 
 ## Webhook de QR no sandbox
 
