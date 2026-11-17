@@ -66,6 +66,7 @@ fi
         "BILLING_DB_PASSWORD": password,
         "NEW_RELIC_LICENSE_KEY": "new-relic-test",
         "MERCADO_PAGO_ACCESS_TOKEN": access_token,
+        "MERCADO_PAGO_EXTERNAL_POS_ID": "sandbox-pos-001",
         "MERCADO_PAGO_WEBHOOK_SECRET": webhook_secret,
         "AWS_ACCESS_KEY_ID": "access-test",
         "AWS_SECRET_ACCESS_KEY": "secret-test",
@@ -87,6 +88,7 @@ fi
     assert (
         f"--from-literal=MERCADO_PAGO_ACCESS_TOKEN={access_token}".encode() in arguments
     )
+    assert b"--from-literal=MERCADO_PAGO_EXTERNAL_POS_ID=sandbox-pos-001" in arguments
     assert (
         f"--from-literal=MERCADO_PAGO_WEBHOOK_SECRET={webhook_secret}".encode()
         in arguments

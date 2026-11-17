@@ -26,6 +26,7 @@ class MercadoPagoClient:
         access_token: str,
         base_url: str,
         transport: httpx.BaseTransport | None = None,
+        external_pos_id: str = "",
         timeout: float = 5.0,
         max_attempts: int = 3,
     ) -> None:
@@ -33,8 +34,13 @@ class MercadoPagoClient:
             raise PaymentGatewayConfigurationError(
                 "MERCADO_PAGO_ACCESS_TOKEN is required"
             )
+        if not external_pos_id.strip():
+            raise PaymentGatewayConfigurationError(
+                "MERCADO_PAGO_EXTERNAL_POS_ID is required"
+            )
         self._access_token = access_token
         self._base_url = base_url.rstrip("/")
+        self._external_pos_id = external_pos_id
         self._transport = transport
         self._timeout = timeout
         self._max_attempts = max_attempts
@@ -44,6 +50,7 @@ class MercadoPagoClient:
         return cls(
             access_token=os.getenv("MERCADO_PAGO_ACCESS_TOKEN", ""),
             base_url=os.getenv("MERCADO_PAGO_BASE_URL", "https://api.mercadopago.com"),
+            external_pos_id=os.getenv("MERCADO_PAGO_EXTERNAL_POS_ID", ""),
         )
 
     def create_dynamic_qr(self, payment: Payment) -> PaymentGatewayResult:
@@ -52,7 +59,9 @@ class MercadoPagoClient:
             "type": "qr",
             "total_amount": amount,
             "external_reference": str(payment.id),
-            "config": {"qr": {"mode": "dynamic"}},
+            "config": {
+                "qr": {"external_pos_id": self._external_pos_id, "mode": "dynamic"}
+            },
             "transactions": {"payments": [{"amount": amount}]},
         }
         response = self._request(

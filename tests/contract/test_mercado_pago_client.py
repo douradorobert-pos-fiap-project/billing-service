@@ -30,6 +30,7 @@ def client(handler: httpx.MockTransport) -> MercadoPagoClient:
         access_token="TEST-token",
         base_url="https://mercado-pago.test",
         transport=handler,
+        external_pos_id="sandbox-pos-001",
     )
 
 
@@ -63,7 +64,7 @@ def test_create_dynamic_qr_sends_order_contract_and_stable_idempotency_key():
         "type": "qr",
         "total_amount": "125.50",
         "external_reference": "10000000-0000-4000-8000-000000000001",
-        "config": {"qr": {"mode": "dynamic"}},
+        "config": {"qr": {"external_pos_id": "sandbox-pos-001", "mode": "dynamic"}},
         "transactions": {"payments": [{"amount": "125.50"}]},
     }
 
@@ -158,6 +159,14 @@ def test_invalid_gateway_response_is_rejected(response):
 
 def test_missing_access_token_is_rejected(monkeypatch):
     monkeypatch.delenv("MERCADO_PAGO_ACCESS_TOKEN", raising=False)
+
+    with pytest.raises(PaymentGatewayConfigurationError):
+        MercadoPagoClient.from_env()
+
+
+def test_missing_external_pos_id_is_rejected(monkeypatch):
+    monkeypatch.setenv("MERCADO_PAGO_ACCESS_TOKEN", "TEST-token")
+    monkeypatch.delenv("MERCADO_PAGO_EXTERNAL_POS_ID", raising=False)
 
     with pytest.raises(PaymentGatewayConfigurationError):
         MercadoPagoClient.from_env()
