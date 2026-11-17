@@ -41,7 +41,7 @@ def _create_payment(
     with session_factory.begin() as session:
         if not claim_event(session, event.event_id, CONSUMER_NAME):
             return False
-        quote = session.scalar(
+        approved_quotes = session.scalars(
             select(QuoteModel)
             .where(
                 QuoteModel.saga_id == str(event.saga_id),
@@ -49,9 +49,12 @@ def _create_payment(
                 QuoteModel.status == "APPROVED",
             )
             .with_for_update()
-        )
-        if quote is None:
+        ).all()
+        if not approved_quotes:
             raise LookupError("approved quote not found for payment request")
+        if len(approved_quotes) > 1:
+            raise LookupError("multiple approved quotes found for payment request")
+        quote = approved_quotes[0]
         existing_payment = session.scalar(
             select(PaymentModel)
             .where(PaymentModel.quote_id == quote.id)

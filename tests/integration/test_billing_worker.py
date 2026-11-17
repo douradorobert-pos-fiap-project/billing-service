@@ -235,6 +235,36 @@ def test_gateway_failure_leaves_payment_request_retryable(session_factory):
     assert len(gateway.created) == 1
 
 
+def test_payment_request_rejects_multiple_approved_quotes_for_same_saga(
+    session_factory,
+):
+    order_id = uuid4()
+    saga_id = uuid4()
+    message = event("PaymentCreationRequestedV1", order_id, saga_id)
+    with session_factory.begin() as session:
+        for amount in (Decimal("25.00"), Decimal("50.00")):
+            session.add(
+                QuoteModel(
+                    id=str(uuid4()),
+                    order_id=str(order_id),
+                    saga_id=str(saga_id),
+                    correlation_id=message["correlation_id"],
+                    status="APPROVED",
+                    total=amount,
+                )
+            )
+    gateway = FakeGateway()
+
+    with pytest.raises(LookupError, match="multiple approved quotes"):
+        process_event(session_factory, message, gateway)
+
+    with session_factory() as session:
+        assert session.scalar(select(func.count()).select_from(InboxMessageModel)) == 0
+        assert session.scalar(select(func.count()).select_from(PaymentModel)) == 0
+        assert session.scalar(select(func.count()).select_from(OutboxMessageModel)) == 0
+    assert gateway.created == []
+
+
 def test_payment_lookup_hides_qr_after_payment_is_approved(client, session_factory):
     order_id = uuid4()
     payment_id = uuid4()
